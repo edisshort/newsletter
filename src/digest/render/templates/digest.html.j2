@@ -1,0 +1,135 @@
+{# Print-ready A4 report: NSE masthead (Macro Review style) + short numbered points. Self-contained: inline CSS, embedded logo, no scripts. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} — {{ date }}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 12mm 15mm 14mm 15mm;
+    @bottom-center { content: counter(page); font: 9pt Calibri, Carlito, "Segoe UI", Arial, sans-serif; color: #555; }
+  }
+  :root { --navy: {{ c.navy }}; --red: {{ c.red }}; --orange: {{ c.orange }}; --yellow: {{ c.yellow }};
+          --title: {{ c.title }}; --ink: #1f2328; --muted: #5f6368; --line: #dcdce4; }
+  * { box-sizing: border-box; }
+  html, body { background: #e9eaee; }
+  body { margin: 0; color: var(--ink); font: 10pt/1.42 Calibri, Carlito, "Segoe UI", Arial, Helvetica, sans-serif;
+         -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sheet { width: 210mm; max-width: 100%; margin: 8mm auto; padding: 12mm 15mm 14mm; background: #fff;
+           box-shadow: 0 1px 6px rgba(0,0,0,.18); }
+  table.page { width: 100%; border-collapse: collapse; }
+  table.page > thead > tr > td, table.page > tbody > tr > td { padding: 0; vertical-align: top; }
+
+  /* ---------- masthead (repeats on every printed page) ---------- */
+  .mast { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 2.5mm; }
+  .logo img { height: 13mm; width: auto; display: block; }
+  .logo-text { font-size: 30pt; font-weight: 800; color: var(--navy); line-height: 1; }
+  .masthead-right { text-align: right; }
+  .masthead-title { font-size: 25pt; font-weight: 700; color: var(--title); line-height: 1.05; }
+  .dateline { font-size: 10.5pt; color: #333; margin-top: 1mm; }
+  .bar { display: flex; height: 2.2mm; margin-bottom: 3mm; }
+  .bar span:nth-child(1) { flex: 15; background: var(--navy); }
+  .bar span:nth-child(2) { flex: 20; background: var(--red); }
+  .bar span:nth-child(3) { flex: 25; background: var(--orange); }
+  .bar span:nth-child(4) { flex: 40; background: var(--yellow); }
+  .meta { font-size: 8.5pt; color: var(--muted); margin: 0 0 1mm; }
+  .meta .warn { color: #8a4b00; }
+
+  /* ---------- numbered points ---------- */
+  .item { display: flex; gap: 4mm; padding: 2.4mm 0; border-bottom: 1px solid var(--line); break-inside: avoid; }
+  .rank { flex: 0 0 9mm; font-size: 20pt; font-weight: 700; color: #a3a6b4; line-height: 1; }
+  .body { flex: 1; min-width: 0; }
+  .badges { margin-bottom: 1mm; }
+  .badge { display: inline-block; font-size: 7.5pt; font-weight: 700; color: #fff; padding: .3mm 2mm; border-radius: 2px; }
+  .tag { display: inline-block; font-size: 7.5pt; color: #374151; padding: .2mm 2mm; border-radius: 2px; border: 1px solid #cfd2da; background: #f5f6f8; }
+  .tag.extract { border-style: dashed; background: #fff; color: var(--muted); }
+  .t { font-size: 11pt; font-weight: 700; color: var(--navy); margin: 0 0 .6mm; }
+  .line { margin: 0 0 .5mm; line-height: 1.36; }
+  .line b { color: #111; }
+  .src { font-size: 8.5pt; color: var(--muted); margin-top: 1mm; }
+  .src a { color: var(--navy); }
+  .score { font-weight: 700; color: var(--orange); }
+
+  /* ---------- also noted + about ---------- */
+  h2 { font-size: 10.5pt; color: var(--navy); text-transform: uppercase; letter-spacing: .6px; margin: 4mm 0 1.5mm; break-after: avoid; }
+  .hits { margin: 0; padding-left: 5mm; columns: 2; column-gap: 8mm; font-size: 9pt; }
+  .hits li { break-inside: avoid; margin-bottom: 1mm; }
+  .hits a { color: var(--navy); }
+  .about { margin-top: 4mm; padding-top: 2mm; border-top: 1px solid var(--line); font-size: 8pt; color: var(--muted); line-height: 1.4; break-inside: avoid; }
+
+  @media print {
+    html, body { background: #fff; }
+    .sheet { width: auto; margin: 0; padding: 0; box-shadow: none; }
+    a { text-decoration: none; }
+  }
+  @media screen and (max-width: 640px) {
+    .sheet { padding: 6mm 4mm; margin: 0; }
+    .hits { columns: 1; }
+    .masthead-title { font-size: 18pt; }
+    .logo img { height: 9mm; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+<table class="page" role="presentation">
+<thead><tr><td>
+  <div class="mast">
+    <div class="logo">
+      {% if logo %}<img src="{{ logo }}" alt="{{ org }}">{% else %}<div class="logo-text">{{ org }}</div>{% endif %}
+    </div>
+    <div class="masthead-right">
+      <div class="masthead-title">{{ title }}</div>
+      <div class="dateline">{{ date }}</div>
+    </div>
+  </div>
+  <div class="bar"><span></span><span></span><span></span><span></span></div>
+</td></tr></thead>
+<tbody><tr><td>
+
+  <p class="meta">
+    Top {{ items|length }} AI initiatives · window {{ window_start }} – {{ window_end }} ({{ window_days }} days) · ranked by computed trend score.
+    {% if disclaimer %}<span class="warn">{{ disclaimer }}</span>{% endif %}
+  </p>
+
+  {% for e in items %}
+  <div class="item">
+    <div class="rank">{{ e.rank }}</div>
+    <div class="body">
+      <div class="badges">
+        <span class="badge" style="background:{{ e.color }};">{{ e.category }}</span>
+        {% if e.oss %}<span class="tag">{{ e.oss }}</span>{% endif %}
+        {% if e.extractive %}<span class="tag extract" title="LLM summary failed validation; text copied from the top source">extract</span>{% endif %}
+      </div>
+      <div class="t">{{ e.title }}</div>
+      <p class="line"><b>What:</b> {{ e.what }}</p>
+      <p class="line"><b>Why it matters:</b> {{ e.why }}</p>
+      <div class="src">
+        Sources: {% for l in e.links %}<a href="{{ l.url }}">{{ l.label }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
+        &nbsp;|&nbsp; published {{ e.published }} &nbsp;|&nbsp; trend score <span class="score">{{ e.score }}</span>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if quick_hits %}
+  <h2>Also noted</h2>
+  <ul class="hits">
+    {% for h in quick_hits %}<li>{{ h.title }} — <a href="{{ h.url }}">{{ h.label }}</a></li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  <div class="about">
+    {% if sources %}<b>Sources scanned:</b> {{ total_items }} items from {{ sources|length }} sources —
+    {% for name, n in sources %}{{ name }} ({{ n }}){% if not loop.last %}, {% endif %}{% endfor %}.<br>{% endif %}
+    Trend score (0–1) combines coverage across sources, engagement, topic relevance, recency and source authority. Summaries are written by an internal LLM from each item's source text; every name and number is checked against that text.
+    {% if disclaimer %}{{ disclaimer }} {% endif %}Generated {{ generated_at }}.
+  </div>
+
+</td></tr></tbody>
+</table>
+</div>
+</body>
+</html>

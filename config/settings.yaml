@@ -1,0 +1,168 @@
+# All pipeline tunables. Env vars (EMBED_MODEL_PATH, LLM_*) override the matching keys.
+
+paths:
+  raw: data/raw/raw_articles.jsonl
+  processed: data/processed/ranked_clusters.json
+  top10: data/output/top10.json
+  html: data/output/digest.html
+  fixture: tests/fixtures/sample_raw.jsonl
+
+fetch:
+  window_days: 7
+  timeout_s: 20
+  retries: 2
+  backoff_s: 1.5               # sleep = backoff_s * 2**attempt
+  user_agent: "nse-ai-news-digest/0.1 (internal POC; contact: ai-team)"
+  extract_min_chars: 400       # items shorter than this get full-page extraction
+  extract_types: [news, discussion]   # RawItem.type values eligible for extraction (HN links to the real page)
+  # Always extract these and append the page text (HF model card) after the API metadata line,
+  # which carries License/Base model used downstream.
+  extract_append_types: [model]
+  extract_workers: 8
+  max_text_chars: 4000
+  keep_query_hosts:            # hosts where the query string identifies the page
+    - news.ycombinator.com
+    - youtube.com
+
+embed:
+  model_path: ""               # overridden by EMBED_MODEL_PATH
+  max_text_chars: 512          # title + first N chars of text
+  batch_size: 64
+  device: cpu
+  # bge query instruction on the short anchors (asymmetric query -> passage); separates topics better
+  anchor_prefix: "Represent this sentence for searching relevant passages: "
+
+cluster:
+  # cosine distance for AgglomerativeClustering. Plan started at 0.25; bge-small puts unrelated
+  # AI papers at ~0.79 similarity, so 0.25 merged them. 0.15 (sim >= 0.85) + entity merge is clean.
+  cluster_threshold: 0.15
+  entity_merge: true           # merge clusters sharing a model/repo name
+  entity_item_types: [model, release, news, discussion]   # papers cite models too often to merge on
+  entity_max_items: 12         # a name on more items than this is too generic to merge on
+  entity_stopwords: [release, version, step, steps, top, day, part, the, and, with, for, gpt, phase, chapter]
+
+relevance:
+  # Raw cosine to the best anchor (with prefix). Plan started at 0.45, which kept everything;
+  # off-topic HN posts sit at 0.44-0.50, AI items at 0.56+.
+  relevance_min: 0.55
+  anchors:
+    - release of a new open-weight large language model
+    - new text embedding model or retrieval model
+    - open-source AI agent framework or tooling
+    - new inference engine or LLM serving software release
+    - research breakthrough in machine learning or language models
+    - Indian language AI model or Indic NLP dataset
+    - government AI regulation or policy
+    - benchmark or evaluation results for large language models
+    # added 2026-10-12: every anchor above is open-model/research flavoured, so frontier launches by
+    # closed labs (e.g. "GPT-6 and Intelligent UI for everyone") ranked ~85th.
+    - launch of a new frontier AI model or major AI product by a leading AI lab
+
+score:
+  # authority (source trust_weight) was 0 until 2026-10-12: lab-blog launches (e.g. GPT-6) carry no
+  # likes/points and ranked ~295th of 313.
+  weights:
+    coverage: 0.35
+    engagement: 0.25
+    relevance: 0.20
+    recency: 0.05
+    authority: 0.15
+  # Clusters with no engagement metric at all (blogs) get the median engagement instead of 0:
+  # missing data is not low engagement.
+  impute_missing_engagement: true
+  recency_half_life_h: 48
+  engagement_metrics: [likes, stars, points, upvotes]
+  default_trust_weight: 0.5
+  max_per_anchor: 3
+  max_paper_clusters: 3        # cap on all-paper clusters among candidates (~900 of ~1000 items are papers)
+  # Clusters led by a fine-tune/quant of another owner's HF model ("Base model: other/x") are not launches.
+  derivative_penalty: 0.5      # score multiplier; 1.0 disables
+  min_text_chars: 200          # a cluster needs one item with at least this much text to be summarised
+  # Clusters made only of HN discussions must look like a launch, not commentary/opinion.
+  launch_title_markers: ["show hn", "launch hn", "introducing", "release", "launch", "open-source",
+                         "open source", "open-weight", "version", " v1", " v2", " v3", "now available"]
+  launch_hosts: [github.com, huggingface.co, gitlab.com, pypi.org, arxiv.org]
+  top_n_candidates: 15
+  table_rows: 20
+  seed: 42
+
+generate:
+  top_n: 10
+  temperature: 0.2
+  response_format: json_schema  # json_schema | json_object
+  max_items_per_cluster: 5
+  item_text_chars: 1500
+  max_retries: 2
+  what_it_is_max_words: 40
+  why_it_matters_max_words: 30
+  max_sources: 3               # source links per initiative (extractive mode)
+  # A qualifier before a number in a summary ("under $0.37") must match the source's ("an average of $0.37").
+  number_qualifiers:
+    below: [under, "less than", below, "fewer than"]
+    above: [over, "more than", above, "at least", exceeding]
+    upto: ["up to", "as much as"]
+    approx: [about, around, nearly, almost, approximately, roughly]
+    average: [average, averaging, "on average", "an average of"]
+  qualifier_window_chars: 30
+  max_what_why_overlap: 0.6    # reject when what/why share more than this fraction of content words
+  # open_source is kept only if the cluster text contains one of these or an open license below.
+  open_source_markers: ["open source", "open-source", "open-weight", "open weights", "openly released"]
+  open_licenses: [apache-2.0, mit, bsd-2-clause, bsd-3-clause, cc-by-4.0, openrail, llama3, gemma]
+  report: data/output/grounding_report.json
+  # Weekly overview (page headline + lead paragraph), written only from the validated summaries.
+  headline_max_words: 14
+  overview_max_words: 130      # the Macro Review lead paragraph runs ~150 words
+  overview_fallback_items: 3   # extractive overview: first sentence of this many top items
+  quick_hits: 0                # unused candidates listed as one-liners ("Also noted"); 0 hides the list
+  write_overview: false        # weekly headline + lead paragraph (one extra LLM call); not shown in the points layout
+  # Extractive fallback: headline word-prefixes win over the anchor mapping below.
+  category_keywords:
+    Embedding: [embedding, retriev, rerank]
+    Regulation: [regulat, legislation, "AI Act", "AI policy", "AI governance"]
+    Indic AI: [indic, hindi, bharat, india]
+  # Category used by the extractive fallback, keyed by relevance anchor (all-paper clusters -> Research).
+  anchor_categories:
+    release of a new open-weight large language model: LLM
+    new text embedding model or retrieval model: Embedding
+    open-source AI agent framework or tooling: Agent/Tooling
+    new inference engine or LLM serving software release: Agent/Tooling
+    research breakthrough in machine learning or language models: Research
+    Indian language AI model or Indic NLP dataset: Indic AI
+    government AI regulation or policy: Regulation
+    benchmark or evaluation results for large language models: Research
+    launch of a new frontier AI model or major AI product by a leading AI lab: LLM
+
+llm:
+  base_url: ""                 # LLM_BASE_URL
+  model: ""                    # LLM_MODEL
+  api_key: "dummy"             # LLM_API_KEY (may be a dummy for vLLM/Ollama)
+  timeout_s: 60
+  max_tokens: 800
+  # Sent only when set (LLM_REASONING_EFFORT). Reasoning models (e.g. Qwen3.x on Ollama) can spend
+  # every token "thinking" and return empty content; "none" turns that off.
+  reasoning_effort: null
+
+render:
+  # Print-ready A4 report: NSE masthead (Macro Review style) + short numbered points. Ctrl+P -> Save as PDF.
+  title: "AI Weekly Digest"
+  org: "NSE"
+  logo_path: assets/nse_logo.png   # official logo (png/svg/jpg), embedded into the HTML; text fallback if missing
+  disclaimer: ""                   # optional warning line shown under the masthead and in the footer; empty hides it
+  date_format: "%B %d, %Y"
+  short_date_format: "%d %b %Y"
+  # Brand colours sampled from the Macro Review template.
+  colors:
+    navy: "#2e2a6e"
+    red: "#d42f45"
+    orange: "#e5602b"
+    yellow: "#f2b233"
+    title: "#e0602a"
+  # Badge colour per Initiative.category.
+  category_colors:
+    LLM: "#2e2a6e"
+    Embedding: "#6a3fa0"
+    Agent/Tooling: "#e5602b"
+    Research: "#b7791f"
+    Indic AI: "#d42f45"
+    Regulation: "#475569"
+    Other: "#6b7280"

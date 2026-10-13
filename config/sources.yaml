@@ -1,0 +1,124 @@
+# Every source the fetch step may hit. URLs are verified live in Phase 1;
+# a failing source gets `enabled: false` plus a `note:` explaining why.
+#
+# Fields: name (unique, becomes RawItem.source), type (fetcher module),
+#         url, enabled, trust_weight (0-1, feeds Cluster.authority), item_type (RawItem.type),
+#         coverage_group (sources in one group count once for Cluster.coverage; default = name)
+
+sources:
+  # --- Hugging Face ---------------------------------------------------------
+  - name: hf_models
+    type: hf_models
+    url: https://huggingface.co/api/models?sort=trendingScore&limit=100&full=true&cardData=true
+    fallback_url: https://huggingface.co/api/models?sort=likes&limit=100&full=true&cardData=true
+    item_type: model
+    max_age_days: 30             # trending models created within this many days are kept
+    enabled: true
+    trust_weight: 0.8
+
+  - name: hf_papers
+    coverage_group: papers           # all paper feeds are one outlet
+    type: hf_papers
+    url: https://huggingface.co/api/daily_papers
+    item_type: paper
+    enabled: true
+    trust_weight: 0.8
+
+  # --- arXiv ----------------------------------------------------------------
+  - name: arxiv_cs.CL
+    coverage_group: papers           # all paper feeds are one outlet
+    type: arxiv
+    url: https://rss.arxiv.org/rss/cs.CL
+    item_type: paper
+    enabled: true
+    trust_weight: 0.7
+    announce_types: [new, cross]   # skip replace / replace-cross (revisions of old papers)
+
+  - name: arxiv_cs.LG
+    coverage_group: papers           # all paper feeds are one outlet
+    type: arxiv
+    url: https://rss.arxiv.org/rss/cs.LG
+    item_type: paper
+    enabled: true
+    trust_weight: 0.7
+    announce_types: [new, cross]   # skip replace / replace-cross (revisions of old papers)
+
+  - name: arxiv_cs.AI
+    coverage_group: papers           # all paper feeds are one outlet
+    type: arxiv
+    url: https://rss.arxiv.org/rss/cs.AI
+    item_type: paper
+    enabled: true
+    trust_weight: 0.7
+    announce_types: [new, cross]   # skip replace / replace-cross (revisions of old papers)
+
+  # --- GitHub releases (Atom) -----------------------------------------------
+  - name: github_releases
+    type: github
+    url: https://github.com/{repo}/releases.atom
+    item_type: release
+    enabled: true
+    trust_weight: 0.9
+    repos:
+      - vllm-project/vllm
+      - huggingface/transformers
+      - ggml-org/llama.cpp
+      - ollama/ollama
+      - langchain-ai/langgraph
+      - run-llama/llama_index
+      - microsoft/autogen
+      - huggingface/sentence-transformers
+      - openai/openai-agents-python
+      - crewAIInc/crewAI
+
+  # --- Hacker News (Algolia) ------------------------------------------------
+  - name: hn
+    type: hn
+    url: https://hn.algolia.com/api/v1/search_by_date
+    item_type: discussion
+    enabled: true
+    trust_weight: 0.5
+    min_points: 30
+    hits_per_page: 100
+    queries:
+      - LLM
+      - open source model
+      - embedding
+      - AI agent
+
+  # --- Lab / org blogs (RSS/Atom) -------------------------------------------
+  - name: blog_huggingface
+    type: rss
+    url: https://huggingface.co/blog/feed.xml
+    item_type: news
+    enabled: true
+    trust_weight: 0.9
+
+  - name: blog_deepmind
+    type: rss
+    url: https://deepmind.google/blog/rss.xml
+    item_type: news
+    enabled: true
+    trust_weight: 1.0
+
+  - name: blog_openai
+    type: rss
+    url: https://openai.com/news/rss.xml
+    item_type: news
+    enabled: true
+    trust_weight: 1.0
+
+  - name: blog_nvidia
+    type: rss
+    url: https://developer.nvidia.com/blog/feed
+    item_type: news
+    enabled: true
+    trust_weight: 0.8
+
+  - name: blog_ai4bharat
+    type: rss
+    url: https://ai4bharat.iitm.ac.in/blog/rss.xml
+    item_type: news
+    enabled: false
+    note: "2026-10-09 verify: connect timeout (20s and 40s) to ai4bharat.iitm.ac.in; site unreachable"
+    trust_weight: 0.9

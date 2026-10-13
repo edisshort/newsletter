@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Pipeline data (keep folder skeleton only)
+data/raw/*
+data/processed/*
+data/output/*
+!data/**/.gitkeep
+
+# Local env / secrets
+.env
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Local model weights (copied to the server out-of-band)
+models/
+
+# Diagram tool scratch (final diagram lives in docs/)
+.archify/
+
+# Original logo upload (checkerboard baked in); cleaned copy is assets/nse_logo.png
+images.png

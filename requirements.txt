@@ -1,0 +1,9 @@
+# Airgapped processing server (process → generate → render). Install from the internal mirror.
+-r requirements-fetch.txt
+sentence-transformers>=3.0   # pulls torch transitively; mirror must carry a CPU wheel
+scikit-learn>=1.4
+numpy>=1.26
+pandas>=2.1
+openai>=1.40
+jinja2>=3.1
+pytest>=8.0
